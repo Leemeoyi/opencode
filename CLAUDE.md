@@ -61,7 +61,11 @@ The harness acts as a **game engineer**. Unreal Engine is the main target; Unity
 - Per engine: a game-engineer agent prompt, skills (Unreal C++ macros and reflection, Blueprints, GAS; Unity C#; GDScript), and tools to build, launch, run automation tests and read logs (`Saved/Logs/*.log`, `Editor.log`, Godot output).
 - Live editor control goes through MCP servers, such as an Unreal editor MCP plugin, rather than custom code.
 
-Status: `packages/plugins/gamedev/` exists with engine detection, the Game Engineer agent (its instructions are appended in the `context` hook because an agent's own `system` field replaces OpenCode's base prompt), the `web-game` skill, and the web tools `game_project`, `game_build` and `game_playtest` (headless Edge or Chrome through `playwright-core`). Run `bun test` in the plugin folder. A Phaser test game lives in `playground/web-game/`, which git ignores. Unreal tools come next.
+Status: `packages/plugins/gamedev/` exists with engine detection, the Game Engineer agent (its instructions are appended in the `context` hook because an agent's own `system` field replaces OpenCode's base prompt), the `web-game` skill, and the web tools `game_project`, `game_build` and `game_playtest` (headless Edge or Chrome through `playwright-core`). Run `bun test` in the plugin folder. A Phaser test game lives in `playground/web-game/`, which git ignores.
+
+Unreal (Windows): `src/unreal.ts` and `src/tools/unreal.ts` add `game_build` (Unreal Build Tool), `game_logs`, `game_playtest` (headless `-game -nullrhi -DisablePython`), `game_test` (automation) and `game_editor`, plus the `unreal-cpp` skill and the editor's MCP server at `http://localhost:8000/mcp`. The test project is `F:\Prj\Drifter` (UE 5.8, no version control; a pre-change snapshot of its Source and Config is in the session scratchpad). Lessons: the `AllToolsets` plugin floods playtests with errors, so enable toolsets individually; the editor ignores `taskkill` without `/F`, so close it with `CloseMainWindow`; UE 5.8's MCP server exposes three meta tools (`list_toolsets`, `describe_toolset`, `call_tool`).
+
+Run OpenCode from source on Windows from `packages/cli` (the repo's `bun run dev <dir>`), not from inside the project folder, or Bun loses the CLI's `bunfig.toml` preload. Use the `claude-agent` provider (`claude-agent/sonnet`) to run on a Claude subscription through the local Claude Code login.
 
 ## Upstream edits
 

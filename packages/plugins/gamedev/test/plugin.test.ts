@@ -20,7 +20,13 @@ const load = async (directory: string) => {
   const tools = new Map<string, Tool>()
   const skills = new Map<string, { id: string }>()
   const contextHooks: ((event: ContextEvent) => void)[] = []
+  const mcp = new Map<string, unknown>()
   const ctx = {
+    mcp: {
+      transform: async (fn: (editor: unknown) => void) =>
+        fn({ get: (name: string) => mcp.get(name), set: (name: string, config: unknown) => mcp.set(name, config) }),
+      reload: async () => {},
+    },
     location: { directory },
     options: {},
     agent: {
@@ -47,7 +53,7 @@ const load = async (directory: string) => {
     },
   }
   await plugin.setup(ctx as never)
-  return { agents, tools, skills, contextHooks }
+  return { agents, tools, skills, contextHooks, mcp }
 }
 
 const signal = () => new AbortController().signal
@@ -100,6 +106,19 @@ describe("plugin", () => {
     expect(other.system).toHaveLength(0)
     expect(own.system[0]?.text).toContain("game_playtest")
     expect(own.system[0]?.text).toContain("Phaser 3.90.0")
+  })
+
+  test("for Unreal, registers the editor MCP server and skill even when the engine is missing", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "gamedev-ue-plugin-"))
+    await writeFile(path.join(directory, "Racer.uproject"), JSON.stringify({ EngineAssociation: "0.1" }))
+    const loaded = await load(directory)
+    expect(loaded.mcp.get("unreal-editor")).toEqual({ type: "remote", url: "http://localhost:8000/mcp", oauth: false })
+    expect([...loaded.skills.keys()]).toEqual(["unreal-cpp"])
+    expect([...loaded.tools.keys()]).toEqual(["game_project"])
+    const own = { agent: agentID, system: [] as ContextEvent["system"] }
+    loaded.contextHooks.forEach((hook) => hook(own))
+    expect(own.system[0]?.text).toContain("is not installed on this machine")
+    await rm(directory, { recursive: true })
   })
 
   test("registers only game_project when no game is found", async () => {

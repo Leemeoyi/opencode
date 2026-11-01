@@ -11,6 +11,10 @@ export type Project = {
   readonly detail: string
   readonly packageManager?: PackageManager
   readonly scripts?: Readonly<Record<string, string>>
+  /** Unreal: the .uproject file. */
+  readonly file?: string
+  /** Unreal: the .uproject EngineAssociation, a version such as "5.8" or a source-build GUID. */
+  readonly engineAssociation?: string
 }
 
 export type PackageManager = "bun" | "pnpm" | "yarn" | "npm"
@@ -47,6 +51,8 @@ export const detect = async (directory: string): Promise<Project | undefined> =>
       directory,
       name: path.basename(uproject, ".uproject"),
       detail: info.EngineAssociation ? `Unreal Engine ${info.EngineAssociation}` : "Unreal Engine",
+      file: path.join(directory, uproject),
+      engineAssociation: info.EngineAssociation,
     }
   }
 

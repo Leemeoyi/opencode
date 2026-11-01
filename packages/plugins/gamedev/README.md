@@ -12,9 +12,32 @@ An opt-in OpenCode plugin that adds a **Game Engineer** agent. It detects the pr
 | `game_playtest` tool | Web: starts the dev server, opens the game in headless Edge or Chrome, replays key presses and clicks, and returns the frame rate, console errors and warnings, failed asset loads and a screenshot. |
 | `web-game` skill | Browser game guidance: game loop, input, assets and performance. |
 
-Detected engines: Unreal (`*.uproject`), Unity (`ProjectSettings/ProjectVersion.txt`), Godot (`project.godot`) and browser games (`package.json` with Phaser, Three.js, Babylon.js, PixiJS, Excalibur, KAPLAY, Kaboom or PlayCanvas). Build and playtest tools exist for browser games so far; Unreal, Unity and Godot get the agent and detection only.
+Web `game_playtest` also takes `probes` (JavaScript expressions read before and after the inputs, to measure game state) and `path` (a page path and query to open on the dev server it starts). It uses a browser already installed on the machine (Edge, then Chrome), so nothing is downloaded.
 
-The playtest uses a browser already installed on the machine (Edge, then Chrome), so nothing is downloaded.
+### Unreal Engine (Windows)
+
+The plugin finds the engine the `.uproject` asks for, from the Epic launcher's install list or a registered source build.
+
+| Tool | What it does |
+| ---- | ------------ |
+| `game_build` | Compiles the editor (default) or game target with Unreal Build Tool and returns errors and warnings with file and line. |
+| `game_logs` | Reads `Saved/Logs/<Project>.log` and groups repeated errors and warnings. |
+| `game_playtest` | Runs the game headless (`-game -nullrhi -DisablePython`) for some seconds after its map loads, then reports load time, crashes and logged errors. |
+| `game_test` | Runs automation tests by path prefix and reads the exported report. |
+| `game_editor` | Opens the editor and waits for its MCP server, checks status, or closes an editor it opened by closing its main window (never a forced kill). |
+| `unreal-cpp` skill | Reflection, object lifetime, build errors, GAS, replication and modules. |
+
+The plugin registers the editor's MCP server (`unreal-editor`, `http://localhost:8000/mcp`). To use it, enable the engine's experimental **Unreal MCP** plugin (`ModelContextProtocol`) and the toolsets you want (for example `EditorToolset`, `LiveCodingToolset`, `AutomationTestToolset`) in the project, restricted to the Editor target, and start the server with the editor:
+
+```ini
+; Config/DefaultEditorPerProjectUserSettings.ini
+[/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]
+bAutoStartServer=True
+```
+
+Avoid the `AllToolsets` plugin: it pulls in Game Features, MetaHuman and other plugins whose errors show up in every playtest.
+
+Detected engines: Unreal (`*.uproject`), Unity (`ProjectSettings/ProjectVersion.txt`), Godot (`project.godot`) and browser games (`package.json` with Phaser, Three.js, Babylon.js, PixiJS, Excalibur, KAPLAY, Kaboom or PlayCanvas). Unity and Godot get the agent and detection only so far.
 
 ## Install
 

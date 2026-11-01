@@ -1,6 +1,7 @@
 // PostToolUse hook for Edit|Write: lints the edited file and type-checks its package.
 // Usage: bun .claude/hooks/check-edit.ts <lint|typecheck>
 // Exit 2 with problems on stderr feeds them back to Claude; exit 0 means clean or not applicable.
+import os from "node:os"
 import path from "node:path"
 
 const root = path.resolve(import.meta.dir, "../..")
@@ -44,7 +45,14 @@ if (mode === "typecheck") {
   if (!pkg) process.exit(0)
   const manifest = await Bun.file(path.join(pkg, "package.json")).json()
   if (!manifest.scripts?.typecheck) process.exit(0)
+  // Edits often come in quick runs; only the latest edit's check reports, so half-finished states are not reported.
+  const stamp = path.join(os.tmpdir(), `opencode-typecheck-${path.relative(root, pkg).replace(/[\\/]/g, "-")}`)
+  const mine = `${Date.now()}-${process.pid}`
+  await Bun.write(stamp, mine)
+  await Bun.sleep(5000)
+  if ((await Bun.file(stamp).text()) !== mine) process.exit(0)
   const result = await run([process.execPath, "run", "typecheck"], pkg)
+  if ((await Bun.file(stamp).text()) !== mine) process.exit(0)
   if (result.code !== 0) report(`Type errors in ${path.relative(root, pkg)} after editing ${path.relative(root, file)}:`, result.output)
   process.exit(0)
 }

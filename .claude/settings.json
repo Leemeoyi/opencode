@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "\"$HOME/.bun/bin/bun\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-edit.ts\" lint",
+            "timeout": 60,
+            "statusMessage": "Linting edited file"
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "\"$HOME/.bun/bin/bun\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-edit.ts\" typecheck",
+            "timeout": 300,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ]
+  }
+}

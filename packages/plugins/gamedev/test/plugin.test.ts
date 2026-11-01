@@ -112,7 +112,12 @@ describe("plugin", () => {
     const directory = await mkdtemp(path.join(tmpdir(), "gamedev-ue-plugin-"))
     await writeFile(path.join(directory, "Racer.uproject"), JSON.stringify({ EngineAssociation: "0.1" }))
     const loaded = await load(directory)
-    expect(loaded.mcp.get("unreal-editor")).toEqual({ type: "remote", url: "http://localhost:8000/mcp", oauth: false })
+    expect(loaded.mcp.get("unreal-editor")).toEqual({
+      type: "remote",
+      url: "http://localhost:8000/mcp",
+      oauth: false,
+      headers: { "x-opencode-gamedev-generation": "0" },
+    })
     expect([...loaded.skills.keys()]).toEqual(["unreal-cpp"])
     expect([...loaded.tools.keys()]).toEqual(["game_project"])
     const own = { agent: agentID, system: [] as ContextEvent["system"] }

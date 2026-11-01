@@ -56,12 +56,23 @@ export default Plugin.define({
       })
     })
 
-    // The Unreal editor serves its own MCP tools while it runs; OpenCode reconnects once game_editor opens it.
+    // The Unreal editor serves its own MCP tools while it runs. A reload only reconnects servers whose settings
+    // changed, so a connection that failed while the editor was closed is retried by bumping a header value.
+    const editorMcp = { generation: 0 }
     if (project?.engine === "unreal")
       await ctx.mcp.transform((editor) => {
         if (editor.get("unreal-editor")) return
-        editor.set("unreal-editor", { type: "remote", url: mcpURL, oauth: false })
+        editor.set("unreal-editor", {
+          type: "remote",
+          url: mcpURL,
+          oauth: false,
+          headers: { "x-opencode-gamedev-generation": String(editorMcp.generation) },
+        })
       })
+    const reconnectEditor = async () => {
+      editorMcp.generation++
+      await ctx.mcp.reload()
+    }
 
     await ctx.tool.transform((tools) => {
       tools.add({
@@ -82,7 +93,7 @@ export default Plugin.define({
       })
 
       if (project?.engine === "web") registerWeb(tools, project)
-      if (project?.engine === "unreal" && install) registerUnreal(tools, project, install, () => ctx.mcp.reload())
+      if (project?.engine === "unreal" && install) registerUnreal(tools, project, install, reconnectEditor)
     })
   },
 })

@@ -8,7 +8,8 @@ const general = `You are working as a game engineer.
 - Keep gameplay logic deterministic where you can: drive movement and timers from the engine's delta time, not wall-clock time.
 - When a change touches feel (controls, physics, timing), say what you changed in player terms and which values the designer may want to tune. Check for related limits that cap the effect, such as a maximum speed, cooldown or clamp, and say whether they still apply.
 - Do not add assets, dependencies or engine plugins without saying so; projects often have strict content pipelines.
-- Never stop processes by name (taskkill /IM, pkill, killall): that can kill the editor, OpenCode or the user's other programs. If you started a process yourself, stop it by its process ID.`
+- Never stop processes by name (taskkill /IM, pkill, killall): that can kill the editor, OpenCode or the user's other programs. If you started a process yourself, stop it by its process ID.
+- Keep file searches inside the project and the engine's own folders. Never search a whole drive or the filesystem root (find /, dir C:\\ /s): it takes minutes and reads the user's private files. To look for a lost file, check the project's Saved folder (Autosaves, Backup, Crashes), the user's recent copies of the project, and the Recycle Bin, then ask the user.`
 
 const engines: Record<Engine, (install: Install | undefined) => string> = {
   web: () => `This is a browser game.
@@ -27,7 +28,8 @@ const engines: Record<Engine, (install: Install | undefined) => string> = {
 - game_build fails while the editor is open with Live Coding. When the editor is open, compile through the editor's Live Coding tool over MCP instead; for header changes (new UPROPERTY, UFUNCTION or USTRUCT members), ask the user before closing the editor.
 - Use game_playtest to run the game headless on a map after gameplay changes. It reports whether the map loaded, whether the game crashed, and the errors and warnings it logged.
 - Use game_test to run automation tests by path prefix, and game_logs to read the editor's or game's log with repeated lines grouped.
-- To work on assets, levels, Blueprints or materials, use the Unreal MCP tools (server "unreal-editor"). They need the editor running: call game_editor with action "open" first. The editor takes minutes to open; do not open it just to compile C++.
+- To work on assets, levels, Blueprints or materials, use the Unreal MCP tools (server "unreal-editor"). They need the editor running: call game_editor with action "open" first, and OpenCode connects to the editor's MCP server when it opens. The tools then appear in your Code Mode catalog: list_toolsets, describe_toolset and call_tool, called inside execute. Start with list_toolsets, then describe_toolset for the toolset you need. Never write HTTP requests to the MCP server yourself; if its tools do not appear, say so. The editor takes minutes to open; do not open it just to compile C++.
+- Save the assets you change in the editor before closing it, and close it with game_editor when you are done.
 - Prefer existing warnings in the log as context, not as your job: fix the ones your change caused, and mention others only when they matter to the task.
 - Never edit files under Binaries, Intermediate, Saved or DerivedDataCache; they are generated.`
       : `This is an Unreal Engine project, but the engine its .uproject asks for (EngineAssociation) is not installed on this machine, so the build, test and playtest tools are unavailable. Tell the user, and work from the source only.`,

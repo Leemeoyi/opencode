@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <body style="margin: 0; background: #111">
+    <canvas id="game" width="320" height="200"></canvas>
+    <img src="/missing-sprite.png" alt="" hidden />
+    <script>
+      const canvas = document.getElementById("game")
+      const context = canvas.getContext("2d")
+      let x = 20
+      const frame = () => {
+        context.fillStyle = "#1e293b"
+        context.fillRect(0, 0, canvas.width, canvas.height)
+        context.fillStyle = "#facc15"
+        context.fillRect(x, 90, 20, 20)
+        requestAnimationFrame(frame)
+      }
+      requestAnimationFrame(frame)
+      window.addEventListener("keydown", (event) => {
+        if (event.code === "ArrowRight") x += 10
+        if (event.code === "KeyE") throw new Error("fixture: boom on E")
+      })
+      console.log("fixture ready")
+      console.warn("fixture warning")
+    </script>
+  </body>
+</html>

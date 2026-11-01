@@ -1,0 +1,11 @@
+{
+  "name": "fixture-web-game",
+  "private": true,
+  "scripts": {
+    "dev": "bun server.ts",
+    "build": "bun build.ts"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  }
+}

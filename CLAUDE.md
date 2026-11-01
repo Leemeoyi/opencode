@@ -54,7 +54,14 @@ Goal: agents launch N subagents and wait for any, all, or a quorum of them.
 
 ### Game development
 
-To be defined: target engines, tools (asset pipeline, build and run, log reading), and agents.
+The harness acts as a **game engineer**. Unreal Engine is the main target; Unity, Godot and web game frameworks are supported too.
+
+- Build it as an opt-in plugin in `packages/plugins/gamedev/`, modelled on `packages/plugins/figma/` (an MCP server plus skills, about 40 lines). It installs from a Git URL (`git+https://github.com/Leemeoyi/opencode.git#path:packages/plugins/gamedev`), or locally through `"plugins": ["./packages/plugins/gamedev"]` in `opencode.jsonc`.
+- Detect the engine from the project: `*.uproject` (Unreal), `ProjectSettings/ProjectVersion.txt` (Unity), `project.godot` (Godot), `package.json` with a game framework such as Phaser, Three.js, Babylon.js or PixiJS (web).
+- Per engine: a game-engineer agent prompt, skills (Unreal C++ macros and reflection, Blueprints, GAS; Unity C#; GDScript), and tools to build, launch, run automation tests and read logs (`Saved/Logs/*.log`, `Editor.log`, Godot output).
+- Live editor control goes through MCP servers, such as an Unreal editor MCP plugin, rather than custom code.
+
+Status: `packages/plugins/gamedev/` exists with engine detection, the Game Engineer agent (its instructions are appended in the `context` hook because an agent's own `system` field replaces OpenCode's base prompt), the `web-game` skill, and the web tools `game_project`, `game_build` and `game_playtest` (headless Edge or Chrome through `playwright-core`). Run `bun test` in the plugin folder. A Phaser test game lives in `playground/web-game/`, which git ignores. Unreal tools come next.
 
 ## Upstream edits
 
@@ -63,6 +70,7 @@ Every change this fork makes to an upstream file, so merges stay predictable.
 | File | Change | Why |
 | ---- | ------ | --- |
 | `CLAUDE.md` | Added | Fork instructions (new file) |
+| `bun.lock` | New workspace entry for `@leemeoyi/plugin-gamedev` | Bun records every workspace package. On a merge conflict, take upstream's file and run `bun install` |
 
 ## Commands
 

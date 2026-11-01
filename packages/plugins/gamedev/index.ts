@@ -118,29 +118,49 @@ export default Plugin.define({
         ].join(" "),
         input: Schema.Struct({
           url: Schema.optionalKey(Schema.String).annotate({ description: "Test this URL instead of starting the dev server" }),
+          path: Schema.optionalKey(Schema.String).annotate({
+            description:
+              'Page path and query to open on the dev server (or on url), e.g. "?speed=600" or "/level-2". Use this instead of starting a server yourself.',
+          }),
           seconds: Schema.optionalKey(Schema.Number).annotate({
             description: "How long to observe the game after loading, 1-60. Default 5.",
           }),
           actions: Schema.optionalKey(Schema.Array(Action)).annotate({ description: "Inputs to replay, in order" }),
+          probes: Schema.optionalKey(Schema.Array(Schema.String)).annotate({
+            description: [
+              "JavaScript expressions evaluated in the page once the game has loaded and again after the inputs,",
+              'to measure game state, e.g. "window.__game.scene.scenes[0].ship.x".',
+              "The game must expose what you read on window; add that in development code if it does not.",
+            ].join(" "),
+          }),
         }),
         output: Schema.Struct({
           url: Schema.String,
           fps: Schema.Number,
           errors: Schema.Array(Schema.String),
           warnings: Schema.Array(Schema.String),
+          probes: Schema.Array(Schema.Struct({ expression: Schema.String, before: Schema.String, after: Schema.String })),
         }),
         execute: async (input, context) => {
           const report = await playtest(
             project,
             {
               url: input.url,
+              path: input.path,
               seconds: Math.min(60, Math.max(1, input.seconds ?? 5)),
               actions: input.actions ?? [],
+              probes: input.probes ?? [],
             },
             context.signal,
           )
           return {
-            output: { url: report.url, fps: report.fps, errors: report.errors, warnings: report.warnings },
+            output: {
+              url: report.url,
+              fps: report.fps,
+              errors: report.errors,
+              warnings: report.warnings,
+              probes: report.probes,
+            },
             content: [
               { type: "text", text: summarize(report) },
               { type: "file", uri: `data:image/png;base64,${report.screenshot}`, mime: "image/png", name: "playtest.png" },

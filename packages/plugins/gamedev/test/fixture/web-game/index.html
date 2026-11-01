@@ -6,17 +6,18 @@
     <script>
       const canvas = document.getElementById("game")
       const context = canvas.getContext("2d")
-      let x = 20
+      window.fixture = { player: { x: Number(new URLSearchParams(location.search).get("x") ?? 20), name: "box" } }
+      const player = window.fixture.player
       const frame = () => {
         context.fillStyle = "#1e293b"
         context.fillRect(0, 0, canvas.width, canvas.height)
         context.fillStyle = "#facc15"
-        context.fillRect(x, 90, 20, 20)
+        context.fillRect(player.x, 90, 20, 20)
         requestAnimationFrame(frame)
       }
       requestAnimationFrame(frame)
       window.addEventListener("keydown", (event) => {
-        if (event.code === "ArrowRight") x += 10
+        if (event.code === "ArrowRight") player.x += 10
         if (event.code === "KeyE") throw new Error("fixture: boom on E")
       })
       console.log("fixture ready")

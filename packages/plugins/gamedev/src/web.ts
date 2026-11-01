@@ -7,12 +7,21 @@ export type Action =
   | { readonly type: "click"; readonly x: number; readonly y: number }
   | { readonly type: "wait"; readonly ms: number }
 
+export type Probe = {
+  readonly expression: string
+  /** The value after the game loaded, before any input. */
+  readonly before: string
+  /** The value after the inputs and the observation time. */
+  readonly after: string
+}
+
 export type PlaytestReport = {
   readonly url: string
   readonly fps: number
   readonly errors: readonly string[]
   readonly warnings: readonly string[]
   readonly logs: readonly string[]
+  readonly probes: readonly Probe[]
   readonly screenshot: string
 }
 
@@ -24,6 +33,27 @@ const frameCounter = `
   const tick = () => { window.__gamedevFrames++; requestAnimationFrame(tick) }
   requestAnimationFrame(tick)
 `
+
+/**
+ * Page-side code that evaluates one probe expression and returns its value as short text. Game objects are often
+ * circular (a sprite points at its scene, which points back at the sprite), so objects are cut off two levels deep.
+ */
+const probeScript = (expression: string) => `(() => {
+  const describe = (value, depth) => {
+    if (value === null || typeof value !== "object") return value
+    if (depth >= 2) return Array.isArray(value) ? "[Array(" + value.length + ")]" : "[" + (value.constructor?.name ?? "Object") + "]"
+    if (Array.isArray(value)) return value.slice(0, 20).map((item) => describe(item, depth + 1))
+    return Object.fromEntries(Object.keys(value).slice(0, 30).map((key) => [key, describe(value[key], depth + 1)]))
+  }
+  try {
+    const value = (${expression})
+    if (typeof value === "function") return "[function]"
+    if (value === undefined) return "undefined"
+    return JSON.stringify(describe(value, 0)).slice(0, 600)
+  } catch (error) {
+    return "error: " + (error && error.message ? error.message : String(error))
+  }
+})()`
 
 export const build = async (project: Project, script: string, signal: AbortSignal) => {
   if (!project.scripts?.[script]) throw new Error(`No "${script}" script in package.json`)
@@ -86,7 +116,14 @@ const launchBrowser = async () => {
 
 export const playtest = async (
   project: Project,
-  input: { readonly url?: string; readonly seconds: number; readonly actions: readonly Action[] },
+  input: {
+    readonly url?: string
+    /** Page path and query resolved against the dev server or url, e.g. "?speed=600" or "/level-2". */
+    readonly path?: string
+    readonly seconds: number
+    readonly actions: readonly Action[]
+    readonly probes: readonly string[]
+  },
   signal: AbortSignal,
 ): Promise<PlaytestReport> => {
   const script = serverScript(project)
@@ -96,7 +133,8 @@ export const playtest = async (
     await server.stop()
     throw new Error(`The "${script}" script did not print a local URL within 30 seconds. Output:\n${server.log()}`)
   }
-  const url = input.url ?? server!.url!
+  const base = input.url ?? server!.url!
+  const url = input.path ? new URL(input.path, base).toString() : base
   const browser = await launchBrowser()
   const stop = () => void browser.close()
   signal.addEventListener("abort", stop, { once: true })
@@ -127,6 +165,17 @@ export const playtest = async (
 
       const canvas = page.locator("canvas").first()
       const box = (await canvas.count()) > 0 ? await canvas.boundingBox() : null
+      // A syntax error in a probe fails before the page-side try block runs, so it is caught here instead.
+      const evaluate = () =>
+        Promise.all(
+          input.probes.map((expression) =>
+            page
+              .evaluate(probeScript(expression))
+              .then(String)
+              .catch((error: Error) => `error: ${error.message.replace(/^evaluate:\s*/, "").split("\n")[0]}`),
+          ),
+        )
+      const before = await evaluate()
       const startFrames = Number(await page.evaluate("window.__gamedevFrames"))
       const started = Date.now()
       for (const action of input.actions) {
@@ -143,8 +192,10 @@ export const playtest = async (
       if (remaining > 0) await page.waitForTimeout(remaining)
       const frames = Number(await page.evaluate("window.__gamedevFrames")) - startFrames
       const fps = Math.round((frames / ((Date.now() - started) / 1000)) * 10) / 10
+      const after = await evaluate()
+      const probes = input.probes.map((expression, index) => ({ expression, before: before[index], after: after[index] }))
       const image = box ? await canvas.screenshot({ type: "png" }) : await page.screenshot({ type: "png" })
-      return { url, fps, errors, warnings, logs, screenshot: image.toString("base64") }
+      return { url, fps, errors, warnings, logs, probes, screenshot: image.toString("base64") }
     })
     .finally(async () => {
       signal.removeEventListener("abort", stop)
@@ -162,5 +213,11 @@ export const summarize = (report: PlaytestReport) =>
     `Warnings (${report.warnings.length}):`,
     ...(report.warnings.length ? report.warnings.slice(0, 20).map((line) => `  ${line}`) : ["  none"]),
     ...(report.logs.length ? ["Console:", ...report.logs.slice(0, 20).map((line) => `  ${line}`)] : []),
+    ...(report.probes.length
+      ? [
+          "Probes (before input -> after input and observation):",
+          ...report.probes.map((probe) => `  ${probe.expression}: ${probe.before} -> ${probe.after}`),
+        ]
+      : []),
     "A screenshot of the game is attached.",
   ].join("\n")

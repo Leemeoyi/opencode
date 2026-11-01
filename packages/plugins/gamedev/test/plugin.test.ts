@@ -151,4 +151,45 @@ describe("plugin", () => {
     },
     60_000,
   )
+
+  test(
+    "game_playtest probes read game state before and after input",
+    async () => {
+      const loaded = await load(fixture)
+      const result = await loaded.tools.get("game_playtest")!.execute(
+        {
+          seconds: 1,
+          actions: [
+            { type: "press", key: "ArrowRight" },
+            { type: "press", key: "ArrowRight" },
+          ],
+          probes: ["window.fixture.player.x", "window.fixture.player", "window.missing.value", "window.fixture.player.x +"],
+        },
+        { signal: signal() },
+      )
+      const probes: { expression: string; before: string; after: string }[] = result.output.probes
+      expect(probes[0]).toEqual({ expression: "window.fixture.player.x", before: "20", after: "40" })
+      expect(JSON.parse(probes[1].after)).toEqual({ x: 40, name: "box" })
+      expect(probes[2].after).toStartWith("error:")
+      expect(probes[3].after).toStartWith("error:")
+      expect(result.content[0].text).toContain("window.fixture.player.x: 20 -> 40")
+    },
+    60_000,
+  )
+
+  test(
+    "game_playtest opens path and query on the dev server it starts",
+    async () => {
+      const loaded = await load(fixture)
+      const result = await loaded.tools
+        .get("game_playtest")!
+        .execute(
+          { seconds: 1, path: "?x=100", actions: [{ type: "press", key: "ArrowRight" }], probes: ["window.fixture.player.x"] },
+          { signal: signal() },
+        )
+      expect(result.output.url).toMatch(/^http:\/\/localhost:\d+\/\?x=100$/)
+      expect(result.output.probes[0]).toMatchObject({ before: "100", after: "110" })
+    },
+    60_000,
+  )
 })

@@ -54,6 +54,8 @@ Goal: agents launch N subagents and wait for any, all, or a quorum of them.
 - `Job.Service` (`packages/core/src/job.ts`) already has `wait`, `background`, `cancel` and `runningBackground`. What is missing is a tool that lets an agent call them: wait for any, all, or K of N job IDs, with a timeout.
 - Making every tool async (not only subagents and shell) touches the tool loop in `packages/ai`. That is a larger upstream edit. Design it before writing it.
 
+Status: `subagent_wait` (`packages/core/src/tool/plugin/subagent-wait.ts`, tests in `packages/core/test/tool-subagent-wait.test.ts`) waits for all, any, or a quorum of a session's background subagents, with a timeout and optional `cancelRest`. A subagent that finished before the wait no longer has a job, so its result is read from its session. The usual completion notices still arrive afterwards; the tool's description tells the agent to ignore them. Tested live on DeepSeek with three explore subagents (quorum 2 met, third cancelled). Making every tool async is not done.
+
 ### Game development
 
 The harness acts as a **game engineer**. Unreal Engine is the main target; Unity, Godot and web game frameworks are supported too.
@@ -67,6 +69,8 @@ Status: `packages/plugins/gamedev/` exists with engine detection, the Game Engin
 
 Unreal (Windows): `src/unreal.ts` and `src/tools/unreal.ts` add `game_build` (Unreal Build Tool), `game_logs`, `game_playtest` (headless `-game -nullrhi -DisablePython`), `game_test` (automation) and `game_editor`, plus the `unreal-cpp` skill and the editor's MCP server at `http://localhost:8000/mcp`. The test project is `F:\Prj\Drifter` (UE 5.8, no version control; a pre-change snapshot of its Source and Config is in the session scratchpad). Lessons: the `AllToolsets` plugin floods playtests with errors, so enable toolsets individually; the editor ignores `taskkill` without `/F`, so close it with `CloseMainWindow`; UE 5.8's MCP server exposes three meta tools (`list_toolsets`, `describe_toolset`, `call_tool`).
 
+The CLI starts a background service that keeps running between commands. After changing code in `packages/core` (or other non-plugin packages), stop it with `bun src/index.ts service stop` in `packages/cli` before testing, or the old code keeps running. Plugins under `packages/plugins` reload on their own.
+
 Run OpenCode from source on Windows from `packages/cli` (the repo's `bun run dev <dir>`), not from inside the project folder, or Bun loses the CLI's `bunfig.toml` preload. Use the `claude-agent` provider (`claude-agent/sonnet`) to run on a Claude subscription through the local Claude Code login.
 
 ## Upstream edits
@@ -76,6 +80,7 @@ Every change this fork makes to an upstream file, so merges stay predictable.
 | File | Change | Why |
 | ---- | ------ | --- |
 | `CLAUDE.md` | Added | Fork instructions (new file) |
+| `packages/core/src/plugin/internal.ts` | Import and register `SubagentWaitTool` (2 lines) | The wait tool needs `Job.Service`, which plugins cannot reach; its code is a new file, `tool/plugin/subagent-wait.ts` |
 | `bun.lock` | New workspace entries for `@leemeoyi/plugin-gamedev` and `@leemeoyi/plugin-memory` | Bun records every workspace package. On a merge conflict, take upstream's file and run `bun install` |
 
 ## Commands

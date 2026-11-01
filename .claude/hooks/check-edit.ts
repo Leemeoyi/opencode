@@ -46,10 +46,11 @@ if (mode === "typecheck") {
   const manifest = await Bun.file(path.join(pkg, "package.json")).json()
   if (!manifest.scripts?.typecheck) process.exit(0)
   // Edits often come in quick runs; only the latest edit's check reports, so half-finished states are not reported.
+  // The wait is longer than the synchronous lint hook (about 7s), which separates consecutive edits.
   const stamp = path.join(os.tmpdir(), `opencode-typecheck-${path.relative(root, pkg).replace(/[\\/]/g, "-")}`)
   const mine = `${Date.now()}-${process.pid}`
   await Bun.write(stamp, mine)
-  await Bun.sleep(5000)
+  await Bun.sleep(10_000)
   if ((await Bun.file(stamp).text()) !== mine) process.exit(0)
   const result = await run([process.execPath, "run", "typecheck"], pkg)
   if ((await Bun.file(stamp).text()) !== mine) process.exit(0)

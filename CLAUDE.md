@@ -44,6 +44,8 @@ Goal: sessions that run for thousands of turns without summarizing, by building 
 - The `compaction` hook can set `result` to supply its own summary and skip the model call. This is a fallback for when the provider rejects the context as too long (`reason: "overflow"`).
 - Start with a plugin. Only edit `compaction.ts` if the hooks turn out not to be enough.
 
+Status: built as `packages/plugins/memory/` (see its DESIGN.md and README.md). Layer 1 `memory` notes and layer 2 `recall` work on every provider; layer 3 window management and the compaction fallback apply to API providers only, because the Claude Agent provider sends Claude Code only the newest message and Claude Code compacts its own transcript. Tested live on DeepSeek with `playground/memory-test` (git-ignored).
+
 ### Async tools and subagent dispatch
 
 Goal: agents launch N subagents and wait for any, all, or a quorum of them.
@@ -74,7 +76,7 @@ Every change this fork makes to an upstream file, so merges stay predictable.
 | File | Change | Why |
 | ---- | ------ | --- |
 | `CLAUDE.md` | Added | Fork instructions (new file) |
-| `bun.lock` | New workspace entry for `@leemeoyi/plugin-gamedev` | Bun records every workspace package. On a merge conflict, take upstream's file and run `bun install` |
+| `bun.lock` | New workspace entries for `@leemeoyi/plugin-gamedev` and `@leemeoyi/plugin-memory` | Bun records every workspace package. On a merge conflict, take upstream's file and run `bun install` |
 
 ## Commands
 

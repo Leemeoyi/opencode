@@ -63,6 +63,21 @@ const fromJob = (info: Job.Info): Outcome => ({
   text: info.status === "completed" ? info.output : info.status === "error" ? info.error : undefined,
 })
 
+/**
+ * A subagent that finished and delivered its result before the wait began no longer has a job; its own session still
+ * holds its final reply.
+ */
+export const fromSession = (sessions: Pick<Session.Interface, "messages">, id: SessionSchema.ID) =>
+  sessions.messages({ sessionID: id, order: "desc", limit: 20 }).pipe(
+    Effect.map((messages): Outcome => {
+      const assistant = messages.find((message) => message.type === "assistant" && message.time.completed !== undefined)
+      if (assistant?.type === "assistant" && assistant.error === undefined)
+        return { status: "completed", text: SubagentCompletion.text(assistant) }
+      return { status: "error", text: "The subagent finished without a successful response." }
+    }),
+    Effect.mapError((error) => new ToolFailure({ message: `Could not read subagent session ${id}`, error })),
+  )
+
 export const Plugin = {
   id: "opencode.tool.subagent-wait",
   effect: Effect.fn("SubagentWaitTool.Plugin")(function* (ctx: Context) {
@@ -70,23 +85,10 @@ export const Plugin = {
     const jobs = yield* Job.Service
     const permission = yield* Permission.Service
 
-    // A subagent that finished and delivered its result before the wait began no longer has a job; its own session
-    // still holds its final reply.
-    const fromSession = (id: SessionSchema.ID) =>
-      sessions.messages({ sessionID: id, order: "desc", limit: 20 }).pipe(
-        Effect.map((messages): Outcome => {
-          const assistant = messages.find((message) => message.type === "assistant" && message.time.completed !== undefined)
-          if (assistant?.type === "assistant" && assistant.error === undefined)
-            return { status: "completed", text: SubagentCompletion.text(assistant) }
-          return { status: "error", text: "The subagent finished without a successful response." }
-        }),
-        Effect.mapError((error) => new ToolFailure({ message: `Could not read subagent session ${id}`, error })),
-      )
-
     const outcome = Effect.fnUntraced(function* (id: SessionSchema.ID) {
-      if ((yield* jobs.get(id)) === undefined) return yield* fromSession(id)
+      if ((yield* jobs.get(id)) === undefined) return yield* fromSession(sessions, id)
       const result = yield* jobs.wait({ id })
-      if (result.info === undefined || result.info.status === "running") return yield* fromSession(id)
+      if (result.info === undefined || result.info.status === "running") return yield* fromSession(sessions, id)
       return fromJob(result.info)
     })
 

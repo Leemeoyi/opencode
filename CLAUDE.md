@@ -52,9 +52,11 @@ Goal: agents launch N subagents and wait for any, all, or a quorum of them.
 
 - Background subagents already exist: `subagent` with `background: true` (`packages/core/src/tool/plugin/subagent.ts`). Completion is delivered as a notice (`session/subagent-job.ts`, `session/subagent-completion.ts`).
 - `Job.Service` (`packages/core/src/job.ts`) already has `wait`, `background`, `cancel` and `runningBackground`. What is missing is a tool that lets an agent call them: wait for any, all, or K of N job IDs, with a timeout.
-- Making every tool async (not only subagents and shell) touches the tool loop in `packages/ai`. That is a larger upstream edit. Design it before writing it.
+- Core's session runner runs tools itself (`session/runner/step.ts` calls `Tool.Snapshot.execute`). It does not use `packages/ai/src/loop.ts` or `tool-runtime.ts`, so async tools need no edit there.
 
-Status: `subagent_wait` (`packages/core/src/tool/plugin/subagent-wait.ts`, tests in `packages/core/test/tool-subagent-wait.test.ts`) waits for all, any, or a quorum of a session's background subagents, with a timeout and optional `cancelRest`. A subagent that finished before the wait no longer has a job, so its result is read from its session. The usual completion notices still arrive afterwards; the tool's description tells the agent to ignore them. Tested live on DeepSeek with three explore subagents (quorum 2 met, third cancelled). Making every tool async is not done.
+Status: `subagent_wait` (`packages/core/src/tool/plugin/subagent-wait.ts`, tests in `packages/core/test/tool-subagent-wait.test.ts`) waits for all, any, or a quorum of a session's background subagents, with a timeout and optional `cancelRest`. A subagent that finished before the wait no longer has a job, so its result is read from its session. The usual completion notices still arrive afterwards; the tool's description tells the agent to ignore them. Tested live on DeepSeek with three explore subagents (quorum 2 met, third cancelled).
+
+Every tool is async through `tool_start` and `tool_wait` (`packages/core/src/tool/plugin/tool-background.ts`, design in `tool-background.md` beside it, tests in `packages/core/test/tool-background.test.ts`). `tool_start` runs any tool the session can call directly as a `Job`, through a tool snapshot built with the session's permissions, and returns a job ID. `tool_wait` waits for all, any or a quorum of job IDs: `tool_start` jobs, background shell IDs and background subagent session IDs, with `timeout: 0` to check once. A job nobody waited for posts a `<tool>` notice when it ends. A job that ends while a wait watches it is reported by that wait only. Started tools are not durable: a service restart loses them.
 
 ### Game development
 
@@ -71,7 +73,7 @@ Unreal (Windows): `src/unreal.ts` and `src/tools/unreal.ts` add `game_build` (Un
 
 The CLI starts a background service that keeps running between commands. After changing code in `packages/core` (or other non-plugin packages), stop it with `bun src/index.ts service stop` in `packages/cli` before testing, or the old code keeps running. Plugins under `packages/plugins` reload on their own.
 
-Run OpenCode from source on Windows from `packages/cli` (the repo's `bun run dev <dir>`), not from inside the project folder, or Bun loses the CLI's `bunfig.toml` preload. Use the `claude-agent` provider (`claude-agent/sonnet`) to run on a Claude subscription through the local Claude Code login.
+Run OpenCode from source on Windows from `packages/cli` (the repo's `bun run dev <dir>`), not from inside the project folder, or Bun loses the CLI's `bunfig.toml` preload. For a scripted live test with `opencode run`, which uses the current folder: start `bun src/index.ts serve --port <n>` in `packages/cli` (it prints a password), then from the project folder run `OPENCODE_PASSWORD=<it> bun --preload <absolute path to @opentui/solid/scripts/preload.js> <repo>/packages/cli/src/index.ts run --server http://127.0.0.1:<n> --auto --format json "..." < /dev/null`. Without `< /dev/null` the client waits on stdin and never sends the prompt, and the output is lost when a timeout kills it. Use the `claude-agent` provider (`claude-agent/sonnet`) to run on a Claude subscription through the local Claude Code login.
 
 ## Upstream edits
 
@@ -81,6 +83,7 @@ Every change this fork makes to an upstream file, so merges stay predictable.
 | ---- | ------ | --- |
 | `CLAUDE.md` | Added | Fork instructions (new file) |
 | `packages/core/src/plugin/internal.ts` | Import and register `SubagentWaitTool` (2 lines) | The wait tool needs `Job.Service`, which plugins cannot reach; its code is a new file, `tool/plugin/subagent-wait.ts` |
+| `packages/core/src/plugin/internal.ts` | Import and register `ToolBackground` (2 lines) | `tool_start` and `tool_wait` need `Job.Service` and `Tool.Service`, which plugins cannot reach; their code is a new file, `tool/plugin/tool-background.ts` |
 | `bun.lock` | New workspace entries for `@leemeoyi/plugin-gamedev` and `@leemeoyi/plugin-memory` | Bun records every workspace package. On a merge conflict, take upstream's file and run `bun install` |
 
 ## Commands

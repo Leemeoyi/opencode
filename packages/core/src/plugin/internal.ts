@@ -87,6 +87,7 @@ import { ShellTool } from "../tool/plugin/shell.js"
 import { SkillTool } from "../tool/plugin/skill.js"
 import { SubagentTool } from "../tool/plugin/subagent.js"
 import { SubagentWaitTool } from "../tool/plugin/subagent-wait.js"
+import { ToolBackground } from "../tool/plugin/tool-background.js"
 import { TodoTool } from "../tool/plugin/todo.js"
 import { Tool } from "../tool.js"
 import { ToolOutput } from "../tool-output.js"
@@ -264,6 +265,7 @@ const pre = [
   SkillTool.Plugin,
   SubagentTool.Plugin,
   SubagentWaitTool.Plugin,
+  ToolBackground.Plugin,
   TodoTool.Plugin,
   WebFetchTool.Plugin,
   WebSearchTool.Plugin,
